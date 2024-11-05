@@ -9,9 +9,9 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       output: {
-        entryFileNames: `${pkg.name}.${pkg.version}.js`, // or `parser.[hash].js`
-        chunkFileNames: `${pkg.name}.${pkg.version}.js`, // use this for dynamic imports
-        assetFileNames: `${pkg.name}.${pkg.version}.[ext]`, // or `parser.[hash].[ext]`
+        entryFileNames: `LegitScriptWasm.js`, // or `parser.[hash].js`
+        chunkFileNames: `LegitScriptWasm.js`, // use this for dynamic imports
+        assetFileNames: `LegitScriptWasm.[ext]`, // or `parser.[hash].[ext]` or `${pkg.name}.${pkg.version}.[ext]`
       },
     }
   }

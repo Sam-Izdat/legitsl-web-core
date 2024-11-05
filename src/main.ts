@@ -1,4 +1,9 @@
 import "./style.css"
+declare global {
+    interface Window { lslcore: any; }
+}
+
+window.lslcore = window.lslcore || {};
 
 import type {
   Framegraph,
@@ -6,14 +11,14 @@ import type {
   GPUState,
   LegitScriptFrameResult,
   LegitScriptContextInput,
-  LegitScriptShaderDesc,
+  LegitScriptShaderDesc, 
   LegitScriptLoadResult,
   RaisesErrorFN,
   LegitScriptDeclaration,
 } from "./types"
 
 // @ts-ignore
-import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
+import LegitScriptCompiler from "./legitsl/LegitScriptWasm.js"
 import type {
   ImageCache,
   ImageCacheAllocatedImage
@@ -433,7 +438,4 @@ function ExecuteFrame(dt: number, state: State) {
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
-Init(
-    document.querySelector("output canvas"),
-    document.querySelector("controls")
-  );
+window.lslcore.Init = Init;
