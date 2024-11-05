@@ -1,7 +1,7 @@
 {
   "name": "LegitSLWebCore",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -16,5 +16,8 @@
   "dependencies": {
     "monaco-editor": "^0.52.0",
     "terser": "^5.36.0"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }
