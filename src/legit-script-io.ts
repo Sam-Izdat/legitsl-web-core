@@ -1,4 +1,4 @@
-import {
+import type {
   uvec2,
   LegitScriptContextRequest,
   LegitScriptContextInput,
@@ -7,8 +7,11 @@ import {
   LegitScriptShaderInvocation,
   LegitScriptBlendModes} from "./types";
 
+import type {
+  ImageCache
+} from "./image-cache";
+
 import {
-  ImageCache,
   ImageCacheGetImage,
   ImageCacheGetSize,
   ImageCacheStartFrame,

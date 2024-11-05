@@ -1,4 +1,4 @@
-import { LegitScriptCachedImageRequest, RaisesErrorFN } from "./types"
+import type { LegitScriptCachedImageRequest, RaisesErrorFN } from "./types"
 
 export type ImageCacheAllocatedImage = {
   id: number

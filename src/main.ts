@@ -1,7 +1,6 @@
 import "./style.css"
-import * as monaco from "monaco-editor"
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker"
-import {
+
+import type {
   Framegraph,
   FramegraphPass,
   GPUState,
@@ -15,24 +14,28 @@ import {
 
 // @ts-ignore
 import LegitScriptCompiler from "./LegitScript/LegitScriptWasm.js"
-import {
+import type {
   ImageCache,
-  ImageCacheAllocatedImage,
+  ImageCacheAllocatedImage
+} from "./image-cache.js"
+import {
   ImageCacheGetImage
 } from "./image-cache.js"
 
+import type {
+  FailedCompilationResult
+} from "./webgl-shader-compiler.js"
 import {
-  FailedCompilationResult,
   CreateRasterProgram
 } from "./webgl-shader-compiler.js"
 
 import { SourceAssembler } from "./source-assembler.js"
-import { initialContent } from "./initial-content.js"
+import { demoContent } from "./initial-content.js"
 import { ProcessScriptRequests, RunScriptInvocations, SetBlendMode } from "./legit-script-io.js"
 import { UIState } from "./immediate-ui.js"
 
 export type State = {
-  editor: any
+  // editor: any
   gpu: GPUState
   framegraph: Framegraph
   legitScriptCompiler: any
@@ -42,19 +45,12 @@ export type State = {
   hasCompiledOnce: boolean
 }
 
-self.MonacoEnvironment = {
-  getWorker: function (_moduleId: string, _label: string) {
-    return new editorWorker()
-  },
-}
-
-
-function CompileLegitScript(
+export function CompileLegitScript(
   legitScriptCompiler: LegitScriptCompiler,
-  editor: monaco.editor.ICodeEditor
 ): LegitScriptLoadResult | false {
   try {
-    const content = editor.getModel()?.createSnapshot().read() || ""
+    let foo =  (demoContent);
+    const content = foo
     const r = JSON.parse(
       legitScriptCompiler.LegitScriptLoad(content)
     )
@@ -265,160 +261,55 @@ function UpdateFramegraph(
   return null
 }
 
-
-function AttachDragger(
-  dragEl: HTMLElement,
-  resizeTarget: HTMLElement,
-  cb: (rect: DOMRect) => void
-) {
-
-  const dragWidth = dragEl.getBoundingClientRect().width
-
-  let down = false
-  dragEl.addEventListener(
-    "mousedown",
-    (e) => {
-      down = true
-      e.preventDefault()
-    },
-    { passive: false }
-  )
-  window.addEventListener("mouseup", (_) => {
-    down = false
-  })
-  window.addEventListener("mousemove", (e) => {
-    const parentEl = dragEl.parentElement
-    if (!down || !parentEl) {
-      return
-    }
-
-    const parentRect = parentEl.getBoundingClientRect()
-    const parentLeft = parentRect.left
-    const newWidth = e.clientX - parentLeft - dragWidth / 2
-    resizeTarget.style.width = `${newWidth.toFixed(0)}px`
-    resizeTarget.style.flexGrow = "0"
-    parentRect.width = newWidth
-    cb(parentRect)
-  })
-}
-
-
-function SetEditorSquiggies(
-  decorations : monaco.editor.IEditorDecorationsCollection,
-  editor : monaco.editor.IStandaloneCodeEditor,
-  line : number,
-  column : number,
-  desc : string){
-  
-  decorations.set([
-    {
-      range: new monaco.Range(line, 1, line, 1),
-      options: {
-        isWholeLine: true,
-        className: "compileErrorGlyph",
-        glyphMarginClassName: "compileErrorBackground",
-      },
-    },
-  ])
-
-  const markers = [
-    {
-      message: desc,
-      severity: monaco.MarkerSeverity.Error,
-      startLineNumber: line,
-      startColumn: column,
-      endLineNumber: line,
-      endColumn: column + 1,
-    },
-  ]
-
-  const model = editor.getModel()
-  if (model) {
-    monaco.editor.setModelMarkers(model, "legitscript", markers)
-    const visibleRange = editor.getVisibleRanges()[0]
-    if (
-      !visibleRange ||
-      visibleRange.startLineNumber > line ||
-      visibleRange.endLineNumber < line
-    ) {
-      //this feels very bad when you change the number of arguments to a pass and it immediately jumps you to the call site of that pass that now contains an error
-      //if(line > 0) //line = 0 usually means we failed to find it
-      //  editor.revealLineInCenter(line)
-    }
-  }
-}
-function UnsetEditorSquiggies(
-  decorations : monaco.editor.IEditorDecorationsCollection,
-  editor : monaco.editor.IStandaloneCodeEditor){
-  const model = editor.getModel()
-  if (model) {
-    monaco.editor.setModelMarkers(model, "legitscript", [])
-    decorations.set([])
-  }
-}
-
-function OnEditorUpdate(
-  state : State,
-  decorations : monaco.editor.IEditorDecorationsCollection){
-  const compileResult = CompileLegitScript(
-    state.legitScriptCompiler,
-    state.editor
+export async function OnEditorUpdate(
+  state : State
+  // decorations : monaco.editor.IEditorDecorationsCollection
+  ){
+  console.warn('EDITOR UPDATE');
+  const compileResult = await CompileLegitScript(
+    state.legitScriptCompiler
+    // state.editor
   )
   if (compileResult) {
     if (compileResult.error) {
-      console.error("compileResult", compileResult)
-      const { line, column, desc } = compileResult.error
-      SetEditorSquiggies(decorations, state.editor, line, column, desc);
+      console.error("ERR", compileResult)
+      // const { line, column, desc } = compileResult.error
+      // SetEditorSquiggies(decorations, state.editor, line, column, desc);
     } else {
-      const model = state.editor.getModel()
-      if (model) {
-        monaco.editor.setModelMarkers(model, "legitscript", [])
-        decorations.set([])
-      }
+      console.log("NOTERR", compileResult)
+      // const model = state.editor.getModel()
+      // if (model) {
+        // monaco.editor.setModelMarkers(model, "legitscript", [])
+        // decorations.set([])
+      // }
       const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult)
       if(err)
       {
-        SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg);
-      }else
+        // SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg);
+      } else
       {
         state.hasCompiledOnce = true
-        UnsetEditorSquiggies(decorations, state.editor);
+        // UnsetEditorSquiggies(decorations, state.editor);
       }
     }
   }
 }
 
-async function Init(
-  editorEl: HTMLElement | null,
+export async function Init(
   canvasEl: HTMLElement | null,
   controlsEl: HTMLElement | null,
-  draggerEl: HTMLElement | null
 ) {
-  if (!editorEl || !canvasEl || !controlsEl || !draggerEl) {
+  // if (!editorEl || !canvasEl || !controlsEl || !draggerEl) {
+  if (!canvasEl || !controlsEl ) {
     throw new Error("please provide an editor element and canvas element")
   }
 
   const legitScriptCompiler = await LegitScriptCompiler()
 
-  const editor = await InitEditor(editorEl)
-  if (!editor) {
-    throw new Error("could not initialize monaco")
-  }
-
-  const editorResizeHandler = CreateEditorResizeHandler(editor, editorEl)
-  window.addEventListener("resize", editorResizeHandler)
-  editorResizeHandler()
-
-  AttachDragger(draggerEl, editorEl, (rect: DOMRect) => {
-    editor.layout({ width: rect.width, height: rect.height })
-  })
-
-  editor.focus()
-
 
 
   const state: State = {
-    editor,
+    // editor,
     gpu: InitWebGL(canvasEl as HTMLCanvasElement, console.error),
     framegraph: {
       passes: {},
@@ -434,12 +325,27 @@ async function Init(
     hasCompiledOnce: false,
   }
 
-  const decorations = editor.createDecorationsCollection([])
+  // const decorations = editor.createDecorationsCollection([])
   const typingDebouncer = createDebouncer(100, () => {
-    OnEditorUpdate(state, decorations);
+    // OnEditorUpdate(state, decorations);
+    OnEditorUpdate(state);
   })
 
-  editor.getModel()?.onDidChangeContent(typingDebouncer)
+  var i = 1;                  //  set your counter to 1
+
+  function myLoop() {         //  create a loop function
+    setTimeout(function() {   //  call a 3s setTimeout when the loop is called
+      typingDebouncer();   //  your code here
+      i++;                    //  increment the counter
+      if (i < 10) {           //  if the counter < 10, call the loop function
+        myLoop();             //  ..  again which will trigger another 
+      }                       //  ..  setTimeout()
+    }, 3000)
+  }
+
+
+  myLoop();   
+  // editor.getModel()?.onDidChangeContent(typingDebouncer)
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
@@ -527,41 +433,7 @@ function ExecuteFrame(dt: number, state: State) {
   requestAnimationFrame((dt) => ExecuteFrame(dt, state))
 }
 
-async function InitEditor(editorEl: HTMLElement) {
-  if (!editorEl) {
-    return
-  }
-  const editor = monaco.editor.create(editorEl, {
-    value: await initialContent(),
-    language: "c",
-    minimap: {
-      enabled: false,
-    },
-    tabSize: 2,
-    automaticLayout: false,
-    theme: "vs-dark",
-    glyphMargin: false,
-  })
-
-  return editor
-}
-
-function CreateEditorResizeHandler(
-  editor: monaco.editor.IStandaloneCodeEditor,
-  editorEl: HTMLElement
-) {
-  return () => {
-    // editor.layout({ width: 0, height: 0 })
-    window.requestAnimationFrame(() => {
-      const { width, height } = editorEl.getBoundingClientRect()
-      editor.layout({ width, height })
-    })
-  }
-}
-
 Init(
-  document.querySelector("#editor"),
-  document.querySelector("output canvas"),
-  document.querySelector("controls"),
-  document.querySelector("divider")
-)
+    document.querySelector("output canvas"),
+    document.querySelector("controls")
+  );
