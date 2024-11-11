@@ -7,16 +7,15 @@ html {
 
 body {
   margin: 0;
-  background-color: #111;
-  color: #fff;
-  font-family: sans-serif;
+  padding: 0;
 }
 
 #compilation-result {
   background-color: #111;
   color: #fff;
-  height: 500px;
-  padding: 1em;
+  width: 100%;
+  height: 100%;
+  padding: 0;
 }
 
 #app {
@@ -74,7 +73,7 @@ body {
   flex: 1 1 auto;
 }
 
-#app output {
+#app #output-container {
   height: 100%;
   width: 100%;
   margin: auto;
@@ -82,18 +81,18 @@ body {
   flex: 2;
 }
 
-#app output canvas {
+#app #output-container canvas {
   width: 100%;
   height: 100%;
 }
 
-#app controls {
+#app #controls-container {
   width: 100%;
   flex: 1;
   overflow: auto;
 }
 
-#app controls control {
+#app #controls-container control {
   display: block;
   margin-top: 1em;
   margin-left: 1em;

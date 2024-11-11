@@ -35,87 +35,72 @@ import {
 } from "./webgl-shader-compiler.js"
 
 import { SourceAssembler } from "./source-assembler.js"
-import { demoContent } from "./initial-content.js"
+// import { demoContent } from "./initial-content.js"
 import { ProcessScriptRequests, RunScriptInvocations, SetBlendMode } from "./legit-script-io.js"
 import { UIState } from "./immediate-ui.js"
 
+class LegitSLError extends Error {
+  info: any;
+
+  constructor(message:string, info:any) {
+    super(message); 
+    this.name = 'LegitSLError'; 
+    this.info = info; 
+  }
+}
+
 export type State = {
   // editor: any
-  gpu: GPUState
-  framegraph: Framegraph
-  legitScriptCompiler: any
-  uiState : UIState
-  processedRequests : LegitScriptContextInput[]
-  imageCache: ImageCache
-  hasCompiledOnce: boolean
-}
+  gpu: GPUState;
+  framegraph: Framegraph;
+  legitScriptCompiler: any;
+  uiState : UIState;
+  processedRequests : LegitScriptContextInput[];
+  imageCache: ImageCache;
+  hasCompiledOnce: boolean;
+};
 
-export function CompileLegitScript(
-  legitScriptCompiler: LegitScriptCompiler,
-): LegitScriptLoadResult | false {
-  try {
-    let foo =  (demoContent);
-    const content = foo
-    const r = JSON.parse(
-      legitScriptCompiler.LegitScriptLoad(content)
-    )
-    return r
-  } catch (e) {
-    console.error(e)
-    return false
-  }
-}
+let currentState: State;
+let animationFrameId: number | null = null;
+let canvasEl: HTMLElement | null;
+let controlsEl: HTMLElement | null
 
-function LegitScriptFrame(
-  legitScriptCompiler: LegitScriptCompiler,
-  processedRequests : LegitScriptContextInput[]
-): LegitScriptFrameResult | false {
-  try {
-    const raw = legitScriptCompiler.LegitScriptFrame(JSON.stringify(processedRequests))
-    return JSON.parse(raw)
-  } catch (e) {
-    console.error(e)
-    return false
-  }
-}
+export const compileLegitScript = (content: string, legitScriptCompiler: LegitScriptCompiler): LegitScriptLoadResult | false => {
+  const r = JSON.parse(
+    legitScriptCompiler.LegitScriptLoad(content)
+  )
+  return r;
+};
 
-function createDebouncer(delay: number, fn: () => void) {
-  let handle = setTimeout(fn, delay)
-  return function () {
-    handle && clearTimeout(handle)
-    handle = setTimeout(fn, delay)
-  }
-}
+const legitScriptFrame = (legitScriptCompiler: LegitScriptCompiler, processedRequests : LegitScriptContextInput[]): LegitScriptFrameResult | false => {
+  const raw = legitScriptCompiler.LegitScriptFrame(JSON.stringify(processedRequests));
+  return JSON.parse(raw);
+};
 
-function CreateFullscreenRenderer(gl: WebGL2RenderingContext) {
-  const vertexBuffer = new Float32Array([-1, -1, -1, 4, 4, -1])
-  const vao = gl.createVertexArray()
+const createFullscreenRenderer = (gl: WebGL2RenderingContext) => {
+  const vertexBuffer = new Float32Array([-1, -1, -1, 4, 4, -1]);
+  const vao = gl.createVertexArray();
 
-  gl.bindVertexArray(vao)
-  var buf = gl.createBuffer()
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-  gl.bufferData(gl.ARRAY_BUFFER, vertexBuffer, gl.STATIC_DRAW)
-  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
-  gl.enableVertexAttribArray(0)
-  gl.bindVertexArray(null)
+  gl.bindVertexArray(vao);
+  var buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, vertexBuffer, gl.STATIC_DRAW);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(0);
+  gl.bindVertexArray(null);
   return function RenderFullscreenTriangle() {
-    gl.disable(gl.DEPTH_TEST)
-    gl.bindVertexArray(vao)
-    gl.drawArrays(gl.TRIANGLES, 0, 3)
-  }
-}
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(vao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+};
 
-
-
-function InitWebGL(
-  canvas: HTMLCanvasElement,
-  raiseError: RaisesErrorFN
-): GPUState {
+const initWebGL = (canvas: HTMLCanvasElement, raiseError: RaisesErrorFN): GPUState => {
   const options = {
     premultipliedAlpha: true,
     alpha: true,
     antialias: true,
-  }
+  };
 
   Object.assign(canvas.style, {
     left: 0,
@@ -124,22 +109,22 @@ function InitWebGL(
     padding: 0,
     "pointer-events": "none",
     position: "absolute",
-  })
+  });
 
-  const gl = canvas.getContext("webgl2", options) as WebGL2RenderingContext
+  const gl = canvas.getContext("webgl2", options) as WebGL2RenderingContext;
 
-  const extensions = ["EXT_color_buffer_float", "EXT_color_buffer_half_float"]
+  const extensions = ["EXT_color_buffer_float", "EXT_color_buffer_half_float"];
   for (const extensionName of extensions) {
-    const extension = gl.getExtension(extensionName)
+    const extension = gl.getExtension(extensionName);
     if (!extension) {
-      raiseError(`${extensionName} could not be loaded`)
+      raiseError(`${extensionName} could not be loaded`);
     }
   }
 
-  const container = canvas.parentElement
+  const container = canvas.parentElement;
 
   if (!container) {
-    throw new Error("canvas must have a container")
+    throw new Error("canvas must have a container");
   }
   
   const res = CreateRasterProgram(gl,
@@ -160,34 +145,34 @@ function InitWebGL(
     canvas,
     dims: [0, 0],
     gl: gl,
-    fullScreenRenderer: CreateFullscreenRenderer(gl),
-  }
-}
+    fullScreenRenderer: createFullscreenRenderer(gl),
+  };
+};
 
-function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : LegitScriptShaderDesc) : SourceAssembler
+const assembleShader = (declarations: LegitScriptDeclaration[], shaderDesc : LegitScriptShaderDesc) : SourceAssembler =>
 {
   const outputs = shaderDesc.outs.map(
     ({ name, type }, index) =>
       `layout(location=${index}) out ${type} ${name};\n`
-  )
+  );
   const uniforms = shaderDesc.uniforms.map(
     ({ name, type }) => `uniform ${type} ${name};\n`
-  )
+  );
   const samplers = shaderDesc.samplers.map(
     ({ name, type }) => `uniform ${type} ${name};`
-  )
+  );
 
-  var source_assembler = new SourceAssembler()
+  var source_assembler = new SourceAssembler();
   source_assembler.addNonSourceBlock(
     `#version 300 es
     precision highp float;
-    precision highp sampler2D;`)
+    precision highp sampler2D;`);
   
-  for(const include of shaderDesc.includes){
-    for(const decl of declarations){
+  for (const include of shaderDesc.includes){
+    for (const decl of declarations){
       if(decl.name == include){
         source_assembler.addSourceBlock(decl.body.text, decl.body.start);
-        break
+        break;
       }
     }
   }
@@ -197,19 +182,13 @@ function AssembleShader(declarations: LegitScriptDeclaration[], shaderDesc : Leg
     ${uniforms.join("\n")}
     ${samplers.join("\n")}`
   );
-  source_assembler.addNonSourceBlock(`void main(){\n`)
-  source_assembler.addSourceBlock(`${shaderDesc.body.text}`, shaderDesc.body.start);  
-  source_assembler.addNonSourceBlock(`}\n`)
-  return source_assembler
-}
+  source_assembler.addNonSourceBlock(`void main(){\n`);
+  source_assembler.addSourceBlock(`${shaderDesc.body.text}`, shaderDesc.body.start);
+  source_assembler.addNonSourceBlock(`}\n`);
+  return source_assembler;
+};
 
-function CreatePass(
-  gl: WebGL2RenderingContext,
-  program: WebGLProgram,
-  fragSource : string,
-  desc: LegitScriptShaderDesc
-) : FramegraphPass{
-  
+const createPass = (gl: WebGL2RenderingContext, program: WebGLProgram, fragSource : string, desc: LegitScriptShaderDesc) : FramegraphPass => {
   return{
     fragSource : fragSource,
     blendMode : desc.blend_mode,
@@ -222,100 +201,81 @@ function CreatePass(
       return gl.getUniformLocation(program, name)
     }),
     fboAttachmentIds: desc.outs.map((_, i) => gl.COLOR_ATTACHMENT0 + i),
-  }
-}
+  };
+};
 
-function UpdateFramegraph(
-  { gl }: GPUState,
-  framegraph: Framegraph,
-  result: LegitScriptLoadResult | undefined,
-) : FailedCompilationResult | null {
+const updateFramegraph = ({ gl }: GPUState, framegraph: Framegraph, result: LegitScriptLoadResult | undefined,) : FailedCompilationResult | null => {
   if (!result) {
-    return null
+    return null;
   }
 
   for (const desc of result.shader_descs || []) {
-
-    const sourceAssembler = AssembleShader(result.declarations, desc)
-    const fragSource = sourceAssembler.getResultText()
-    let pass: FramegraphPass = framegraph.passes[desc.name]
+    const sourceAssembler = assembleShader(result.declarations, desc);
+    const fragSource = sourceAssembler.getResultText();
+    let pass: FramegraphPass = framegraph.passes[desc.name];
     if (pass) {
       if (pass.fragSource === fragSource) {
-        continue
+        continue;
       }
     }
 
-    const res = CreateRasterProgram(gl, fragSource)
+    const res = CreateRasterProgram(gl, fragSource);
     if (res.type === 'fail') {
       const src_line = sourceAssembler.getSourceLine(res.line);
       return {
         line : src_line ? src_line : 0,
         msg : res.msg,
         type: 'fail'
-      }
+      };
     }
-    if(res.type === 'success')
-    {
+    if (res.type === 'success') {
       if (pass?.program) {
-        gl.deleteProgram(pass.program)
+        gl.deleteProgram(pass.program);
       }
 
-      framegraph.passes[desc.name] = CreatePass(gl, res.program, fragSource, desc);
+      framegraph.passes[desc.name] = createPass(gl, res.program, fragSource, desc);
     }
   }
-  return null
-}
+  return null;
+};
 
-export async function OnEditorUpdate(
-  state : State
-  // decorations : monaco.editor.IEditorDecorationsCollection
-  ){
-  console.warn('EDITOR UPDATE');
-  const compileResult = await CompileLegitScript(
-    state.legitScriptCompiler
+export const onEditorUpdate = async (content: string) => {
+  const compileResult = await compileLegitScript(
+    content,
+    currentState.legitScriptCompiler
     // state.editor
   )
   if (compileResult) {
     if (compileResult.error) {
-      console.error("ERR", compileResult)
-      // const { line, column, desc } = compileResult.error
-      // SetEditorSquiggies(decorations, state.editor, line, column, desc);
+      throw new LegitSLError(compileResult.error.desc, {
+        line: compileResult.error.line,
+        column: compileResult.error.column,
+      });
     } else {
-      console.log("NOTERR", compileResult)
-      // const model = state.editor.getModel()
-      // if (model) {
-        // monaco.editor.setModelMarkers(model, "legitscript", [])
-        // decorations.set([])
-      // }
-      const err = UpdateFramegraph(state.gpu, state.framegraph, compileResult)
+      const err = updateFramegraph(currentState.gpu, currentState.framegraph, compileResult)
       if(err)
       {
-        // SetEditorSquiggies(decorations, state.editor, err.line, 0, err.msg);
+        throw new LegitSLError(err.msg, {
+          line: err.line,
+          column: 0,
+        });
       } else
       {
-        state.hasCompiledOnce = true
-        // UnsetEditorSquiggies(decorations, state.editor);
+        currentState.hasCompiledOnce = true;
+        executeFrame();
+        // UnsetEditorSquiggies(decorations, currentState.editor);
       }
     }
   }
-}
+};
 
-export async function Init(
-  canvasEl: HTMLElement | null,
-  controlsEl: HTMLElement | null,
-) {
-  // if (!editorEl || !canvasEl || !controlsEl || !draggerEl) {
-  if (!canvasEl || !controlsEl ) {
-    throw new Error("please provide an editor element and canvas element")
-  }
-
-  const legitScriptCompiler = await LegitScriptCompiler()
-
-
-
-  const state: State = {
+export const init = async () => {
+  if (!canvasEl || !controlsEl) throw new Error("please provide a canvas element and control element");
+  controlsEl.innerHTML = ''; // FIXME
+  const legitScriptCompiler = await LegitScriptCompiler();
+  currentState = {
     // editor,
-    gpu: InitWebGL(canvasEl as HTMLCanvasElement, console.error),
+    gpu: initWebGL(canvasEl as HTMLCanvasElement, console.error),
     framegraph: {
       passes: {},
     },
@@ -328,35 +288,12 @@ export async function Init(
       requestIdToAllocatedImage: new Map<number, ImageCacheAllocatedImage>(),
     },
     hasCompiledOnce: false,
-  }
-
-  // const decorations = editor.createDecorationsCollection([])
-  const typingDebouncer = createDebouncer(100, () => {
-    // OnEditorUpdate(state, decorations);
-    OnEditorUpdate(state);
-  })
-
-  var i = 1;                  //  set your counter to 1
-
-  function myLoop() {         //  create a loop function
-    setTimeout(function() {   //  call a 3s setTimeout when the loop is called
-      typingDebouncer();   //  your code here
-      i++;                    //  increment the counter
-      if (i < 10) {           //  if the counter < 10, call the loop function
-        myLoop();             //  ..  again which will trigger another 
-      }                       //  ..  setTimeout()
-    }, 3000)
-  }
-
-
-  myLoop();   
-  // editor.getModel()?.onDidChangeContent(typingDebouncer)
-  requestAnimationFrame((dt) => ExecuteFrame(dt, state))
-}
+  };
+};
 
 //there's no way in gles 3.0 to attach the backbuffer as part of an fbo. so we have to crate a temporary texture instead of the back buffer
 //and at the end of the frame copy it onto the back buffer
-function CopyTexToSwapchain(gpu: GPUState, tex : WebGLTexture | null){
+const copyTexToSwapchain = (gpu: GPUState, tex : WebGLTexture | null) => {
   const gl = gpu.gl
   SetBlendMode(gl, 'opaque');
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -365,77 +302,110 @@ function CopyTexToSwapchain(gpu: GPUState, tex : WebGLTexture | null){
   gl.bindTexture(gl.TEXTURE_2D, tex)
   gl.useProgram(gpu.copyProgram)
   gpu.fullScreenRenderer()
-}
+};
 
 
 
-function ExecuteFrame(dt: number, state: State) {
-  if (!state.hasCompiledOnce) {
+const executeFrame = (dt: number = 0) => {
+  if (!currentState.hasCompiledOnce) {
     // TODO: render a placeholder image "sorry, the shader didn't compile" or something
-    requestAnimationFrame((dt) => ExecuteFrame(dt, state))
-    return
+    // executeLoop(dt);
+    return;
   }
   
-  const gpu = state.gpu
+  const gpu = currentState.gpu;
 
   // Ensure we're sized properly w.r.t. pixel ratio
-  const rect = gpu.container.getBoundingClientRect()
+  const rect = gpu.container.getBoundingClientRect();
   if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
-    gpu.dims[0] = rect.width
-    gpu.dims[1] = rect.height
+    gpu.dims[0] = rect.width;
+    gpu.dims[1] = rect.height;
 
     //high DPI multiplier causes texture to fail to create when size is > 2048
     //const width = Math.floor(rect.width * window.devicePixelRatio)
     //const height = Math.floor(rect.height * window.devicePixelRatio)
-    const width = rect.width
-    const height = rect.height
+    const width = rect.width;
+    const height = rect.height;
 
-    gpu.canvas.width = width
-    gpu.canvas.height = height
+    gpu.canvas.width = width;
+    gpu.canvas.height = height;
 
-    gpu.canvas.style.width = `${rect.width}px`
-    gpu.canvas.style.height = `${rect.height}px`
+    gpu.canvas.style.width = `${rect.width}px`;
+    gpu.canvas.style.height = `${rect.height}px`;
   }
 
   const gl = gpu.gl
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height)
-  gl.clearColor(0.0, 0.0, 0.0, 1.0)
-  gl.clear(gl.COLOR_BUFFER_BIT)
-  if (!state.framegraph) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, gpu.canvas.width, gpu.canvas.height);
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  if (!currentState.framegraph) {
     return
   }
-  state.uiState.filterControls();
+  currentState.uiState.filterControls();
 
-  state.processedRequests.push({
+  currentState.processedRequests.push({
     name : '@swapchain_size',
     type : 'uvec2',
     value : {x : gpu.canvas.width, y: gpu.canvas.height}
   });
-  state.processedRequests.push({
+  currentState.processedRequests.push({
     name : '@time',
     type : 'float',
     value : dt
   });
   
   
-  const legitFrame = LegitScriptFrame(
-    state.legitScriptCompiler,
-    state.processedRequests
-  )
-  state.processedRequests = []
+  const legitFrame = legitScriptFrame(
+    currentState.legitScriptCompiler,
+    currentState.processedRequests
+  );
+
+  currentState.processedRequests = [];
 
   if (legitFrame) {
     try {
-      state.processedRequests = ProcessScriptRequests(state.uiState, state.imageCache, {x: gpu.canvas.width, y: gpu.canvas.height}, gl, legitFrame.context_requests);
-      RunScriptInvocations(state.imageCache, state.gpu, state.framegraph.passes, legitFrame.shader_invocations)
-      CopyTexToSwapchain(gpu, ImageCacheGetImage(state.imageCache, 0));
+      currentState.processedRequests = ProcessScriptRequests(
+        currentState.uiState, 
+        currentState.imageCache, 
+        {
+          x: gpu.canvas.width, 
+          y: gpu.canvas.height
+        }, 
+        gl, 
+        legitFrame.context_requests
+      );
+      RunScriptInvocations(currentState.imageCache, currentState.gpu, currentState.framegraph.passes, legitFrame.shader_invocations);
+      copyTexToSwapchain(gpu, ImageCacheGetImage(currentState.imageCache, 0));
     } catch (e) {
       // can console.log/console.error this, but it'll stuck in a busy loop until error resolves
     }
   }
+};
 
-  requestAnimationFrame((dt) => ExecuteFrame(dt, state))
-}
 
-window.lslcore.Init = Init;
+const executeLoop = (dt: number = 0) => {
+  cancelLoop();
+  executeFrame(dt);
+  animationFrameId = requestAnimationFrame(executeLoop);
+};
+
+const cancelLoop = () => {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+};
+
+const configure = (canvasSelector: string = "#output-container canvas", controlsSelector: string = "#controls-container") => {
+  canvasEl = document.querySelector(canvasSelector);
+  controlsEl =  document.querySelector(controlsSelector);
+};
+
+window.lslcore = {
+  configure:    configure,
+  init:         init,
+  update:       onEditorUpdate,
+  executeLoop:  executeLoop,
+  cancelLoop:   cancelLoop,
+};
