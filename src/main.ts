@@ -267,7 +267,7 @@ export const onEditorUpdate = async (content: string) => {
 };
 
 export const init = async () => {
-  if (!canvasEl) throw new Error("please provide a canvas element and control element");
+  if (!canvasEl) throw new Error("please provide a canvas element");
   const legitScriptCompiler = await LegitScriptCompiler();
   currentState = {
     // editor,
