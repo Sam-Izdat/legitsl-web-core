@@ -1,9 +1,8 @@
 import "./style.css"
+
 declare global {
     interface Window { lslcore: any; }
 }
-
-window.lslcore = window.lslcore || {};
 
 import type {
   Framegraph,
@@ -18,26 +17,26 @@ import type {
 } from "./types"
 
 // @ts-ignore
-import LegitScriptCompiler from "./legitsl/LegitScriptWasm.js"
-import type {
-  ImageCache,
-  ImageCacheAllocatedImage
-} from "./image-cache.js"
-import {
-  ImageCacheGetImage
-} from "./image-cache.js"
+import LegitScriptCompiler from "./legitsl/LegitScriptWasm.js";
+import type { ImageCache, ImageCacheAllocatedImage } from "./image-cache.js";
+import { ImageCacheGetImage } from "./image-cache.js";
+import type { FailedCompilationResult } from "./webgl-shader-compiler.js";
+import { CreateRasterProgram } from "./webgl-shader-compiler.js";
 
-import type {
-  FailedCompilationResult
-} from "./webgl-shader-compiler.js"
-import {
-  CreateRasterProgram
-} from "./webgl-shader-compiler.js"
-
-import { SourceAssembler } from "./source-assembler.js"
+import { SourceAssembler } from "./source-assembler.js";
 // import { demoContent } from "./initial-content.js"
-import { ProcessScriptRequests, RunScriptInvocations, SetBlendMode } from "./legit-script-io.js"
-import { UIState } from "./immediate-ui.js"
+import { 
+  ProcessScriptRequests, 
+  RunScriptInvocations, 
+  SetBlendMode,
+
+  contextValues,
+  contextDefsFloat,
+  contextDefsInt,
+  contextDefsBool,
+  contextDefsText,
+  activeContextVarNames,
+} from "./legit-script-io.js";
 
 class LegitSLError extends Error {
   info: any;
@@ -54,7 +53,6 @@ export type State = {
   gpu: GPUState;
   framegraph: Framegraph;
   legitScriptCompiler: any;
-  uiState : UIState;
   processedRequests : LegitScriptContextInput[];
   imageCache: ImageCache;
   hasCompiledOnce: boolean;
@@ -63,7 +61,6 @@ export type State = {
 let currentState: State;
 let animationFrameId: number | null = null;
 let canvasEl: HTMLElement | null;
-let controlsEl: HTMLElement | null
 
 export const compileLegitScript = (content: string, legitScriptCompiler: LegitScriptCompiler): LegitScriptLoadResult | false => {
   const r = JSON.parse(
@@ -270,8 +267,7 @@ export const onEditorUpdate = async (content: string) => {
 };
 
 export const init = async () => {
-  if (!canvasEl || !controlsEl) throw new Error("please provide a canvas element and control element");
-  controlsEl.innerHTML = ''; // FIXME
+  if (!canvasEl) throw new Error("please provide a canvas element and control element");
   const legitScriptCompiler = await LegitScriptCompiler();
   currentState = {
     // editor,
@@ -281,7 +277,6 @@ export const init = async () => {
     },
     legitScriptCompiler,
     processedRequests: [],
-    uiState : new UIState(controlsEl),
     imageCache: {
       id: 0,
       allocatedImages: new Map<string, ImageCacheAllocatedImage>(),
@@ -324,8 +319,8 @@ const executeFrame = (dt: number = 0) => {
     //high DPI multiplier causes texture to fail to create when size is > 2048
     //const width = Math.floor(rect.width * window.devicePixelRatio)
     //const height = Math.floor(rect.height * window.devicePixelRatio)
-    const width = rect.width;
-    const height = rect.height;
+    const width = rect.width || 1; // dim = 0 causes webgl warning spam
+    const height = rect.height || 1;
 
     gpu.canvas.width = width;
     gpu.canvas.height = height;
@@ -342,7 +337,7 @@ const executeFrame = (dt: number = 0) => {
   if (!currentState.framegraph) {
     return
   }
-  currentState.uiState.filterControls();
+  // currentState.uiState.filterControls();
 
   currentState.processedRequests.push({
     name : '@swapchain_size',
@@ -366,7 +361,6 @@ const executeFrame = (dt: number = 0) => {
   if (legitFrame) {
     try {
       currentState.processedRequests = ProcessScriptRequests(
-        currentState.uiState, 
         currentState.imageCache, 
         {
           x: gpu.canvas.width, 
@@ -397,15 +391,20 @@ const cancelLoop = () => {
   }
 };
 
-const configure = (canvasSelector: string = "#output-container canvas", controlsSelector: string = "#controls-container") => {
+const configure = (canvasSelector: string = "#output-container canvas") => {
   canvasEl = document.querySelector(canvasSelector);
-  controlsEl =  document.querySelector(controlsSelector);
 };
 
 window.lslcore = {
-  configure:    configure,
-  init:         init,
-  update:       onEditorUpdate,
-  executeLoop:  executeLoop,
-  cancelLoop:   cancelLoop,
+  configure:              configure,
+  init:                   init,
+  update:                 onEditorUpdate,
+  executeLoop:            executeLoop,
+  cancelLoop:             cancelLoop,
+  contextValues:          contextValues,
+  contextDefsFloat:       contextDefsFloat,
+  contextDefsInt:         contextDefsInt,
+  contextDefsBool:        contextDefsBool,
+  contextDefsText:        contextDefsText,
+  activeContextVarNames:  activeContextVarNames,
 };

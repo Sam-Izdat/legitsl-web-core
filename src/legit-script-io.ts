@@ -17,16 +17,32 @@ import {
   ImageCacheStartFrame,
   ImageCacheProcessRequest} from "./image-cache";
 
-import { UIState } from "./immediate-ui";
+// import { UIState } from "./immediate-ui";
+
+export let contextValues: Map<string, any> = new Map();
+
+export let contextDefsFloat:        Set<string> = new Set();
+export let contextDefsInt:          Set<string> = new Set();
+export let contextDefsBool:         Set<string> = new Set();
+export let contextDefsText:         Set<string> = new Set();
+
+export let activeContextVarNames:   Set<string> = new Set();
 
 export function ProcessScriptRequests(
-  uiState : UIState,
   imageCache : ImageCache,
   swapchainSize : uvec2,
   gl : WebGL2RenderingContext,
   contextRequests : LegitScriptContextRequest[]) : LegitScriptContextInput[]
 {
   var contextInputs : LegitScriptContextInput[] = [];
+
+  contextDefsFloat.clear();
+  contextDefsInt.clear();
+  contextDefsBool.clear();
+  contextDefsText.clear();
+
+  activeContextVarNames.clear();
+
   ImageCacheStartFrame(
     gl,
     imageCache,
@@ -38,41 +54,56 @@ export function ProcessScriptRequests(
     {id : 0, pixel_format : 'rgba16f', size : swapchainSize, type : 'CachedImageRequest'},
     console.error)
 
+  let sortIdx = 0;
   for(const request of contextRequests){
-    if(request.type === 'CachedImageRequest'){
-      ImageCacheProcessRequest(
-        gl,
-        imageCache,
-        request,
-        console.error
-      )
-    }
-    if(request.type == 'FloatRequest'){
-      contextInputs.push({
-        name : request.name,
-        type : 'float',
-        value : uiState.floatSlider(request.name, request.def_val, request.min_val, request.max_val)
-      });
-    }
-    if(request.type == 'IntRequest'){
-      contextInputs.push({
-        name : request.name,
-        type : 'int',
-        value : uiState.intSlider(request.name, request.def_val, request.min_val, request.max_val)
-      });
-    }
-    if(request.type == 'TextRequest'){
-      uiState.text(request.text)
-    }
-    if(request.type == 'BoolRequest'){
-      contextInputs.push({
-        name : request.name,
-        type : 'int',
-        value : 1 //TODO: actually make a checkbox
-      });
-    }
-    if(request.type == 'LoadedImageRequest'){
-      //TODO: figure this out
+    switch(request.type) {
+      case 'CachedImageRequest':        
+        ImageCacheProcessRequest(
+          gl,
+          imageCache,
+          request,
+          console.error
+        );
+        break;
+      case 'TextRequest':
+        contextDefsText.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        sortIdx++;
+        break;
+      case 'FloatRequest':
+        contextInputs.push({
+          name : request.name,
+          type : 'float',
+          value : contextValues.get(request.name) ?? request.def_val
+          // uiState.floatSlider(request.name, request.def_val, request.min_val, request.max_val)
+        });
+        contextDefsFloat.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        activeContextVarNames.add(request.name);
+        sortIdx++;
+        break;
+      case 'IntRequest':
+        contextInputs.push({
+          name : request.name,
+          type : 'int',
+          value : contextValues.get(request.name) ?? request.def_val
+          // uiState.intSlider(request.name, request.def_val, request.min_val, request.max_val)
+        });
+        contextDefsInt.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        activeContextVarNames.add(request.name);
+        sortIdx++;
+        break;
+      case 'BoolRequest':
+        contextInputs.push({
+          name : request.name,
+          type : 'int',
+          value : contextValues.get(request.name) ?? 1
+        });
+        contextDefsBool.add(JSON.stringify({...request, sort_idx: sortIdx}));
+        activeContextVarNames.add(request.name);
+        sortIdx++;
+        break;
+      case 'LoadedImageRequest':
+        // ---
+        break;
     }
   }
   return contextInputs;
@@ -81,30 +112,25 @@ export function ProcessScriptRequests(
 export function SetBlendMode(gl: WebGL2RenderingContext, blendMode : LegitScriptBlendModes)
 {
   gl.enable(gl.BLEND);
-  switch(blendMode)
-  {
-    case 'opaque': {
+  switch(blendMode) {
+    case 'opaque': 
       gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ZERO);
-      gl.blendEquation(gl.FUNC_ADD)
-      break
-    }
-    case 'alphablend': {
+      gl.blendEquation(gl.FUNC_ADD);
+      break;
+    case 'alphablend': 
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       //gl.blendFunc(gl.ONE, gl.ONE);
       gl.blendEquation(gl.FUNC_ADD)
-      break
-    }
-    case 'additive': {
+      break;
+    case 'additive': 
       gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
       gl.blendEquation(gl.FUNC_ADD)
-      break
-    }
-    case 'multiplicative': {
+      break;
+    case 'multiplicative': 
       gl.blendFunc(gl.DST_COLOR, gl.ZERO)
       gl.blendFuncSeparate(gl.DST_COLOR, gl.ZERO, gl.DST_ALPHA, gl.ZERO);
       gl.blendEquation(gl.FUNC_ADD)
-      break
-    }
+      break;
   }
 }
 
@@ -130,54 +156,42 @@ export function RunScriptInvocations(
       }
 
       switch (uniform.type) {
-        case 'float': {
+        case 'float':
           gl.uniform1f(pass.uniforms[uniformIndex], uniform.value)
-          break
-        }
-        case 'vec2': {
+          break;
+        case 'vec2':
           gl.uniform2f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y)
-          break
-        }
-        case 'vec3': {
+          break;
+        case 'vec3':
           gl.uniform3f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z)
-          break
-        }
-        case 'vec4': {
+          break;
+        case 'vec4':
           gl.uniform4f(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
-          break
-        }
-        case 'int': {
+          break;
+        case 'int':
           gl.uniform1i(pass.uniforms[uniformIndex], uniform.value)
-          break
-        }
-        case 'ivec2': {
+          break;
+        case 'ivec2':
           gl.uniform2i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y)
-          break
-        }
-        case 'ivec3': {
+          break;
+        case 'ivec3':
           gl.uniform3i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z)
-          break
-        }
-        case 'ivec4': {
+          break;
+        case 'ivec4':
           gl.uniform4i(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
-          break
-        }
-        case 'uint': {
+          break;
+        case 'uint':
           gl.uniform1ui(pass.uniforms[uniformIndex], uniform.value)
-          break
-        }
-        case 'uvec2': {
+          break;
+        case 'uvec2':
           gl.uniform2ui(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y)
-          break
-        }
-        case 'uvec3': {
+          break;
+        case 'uvec3':
           gl.uniform3ui(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z)
-          break
-        }
-        case 'uvec4': {
+          break;
+        case 'uvec4':
           gl.uniform4ui(pass.uniforms[uniformIndex], uniform.value.x, uniform.value.y, uniform.value.z, uniform.value.w)
-          break
-        }
+          break;
       }
     }
 
