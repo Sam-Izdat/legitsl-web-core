@@ -1,7 +1,7 @@
 {
   "name": "legitsl-web-core",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "terser": "^5.36.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "*"
   },
   "files": [
     "dist"
