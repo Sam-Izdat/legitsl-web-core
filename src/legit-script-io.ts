@@ -95,7 +95,7 @@ export function ProcessScriptRequests(
         contextInputs.push({
           name : request.name,
           type : 'int',
-          value : contextValues.get(request.name) ?? 1
+          value : contextValues.get(request.name) ?? request.def_val
         });
         contextDefsBool.add(JSON.stringify({...request, sort_idx: sortIdx}));
         activeContextVarNames.add(request.name);
