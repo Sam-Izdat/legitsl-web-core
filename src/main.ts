@@ -17,13 +17,17 @@ import type {
 } from "./types"
 
 // @ts-ignore
-import LegitScriptCompiler from "./legitsl/LegitScriptWasm.js";
-import type { ImageCache, ImageCacheAllocatedImage } from "./image-cache.js";
+import LegitScriptCompiler from "./legitsl/LegitScriptWasm";
+import type { ImageCache, ImageCacheAllocatedImage } from "./image-cache";
 import { ImageCacheGetImage } from "./image-cache.js";
-import type { FailedCompilationResult } from "./webgl-shader-compiler.js";
-import { CreateRasterProgram } from "./webgl-shader-compiler.js";
+import type { FailedCompilationResult } from "./webgl-shader-compiler";
+import { CreateRasterProgram } from "./webgl-shader-compiler";
 
-import { SourceAssembler } from "./source-assembler.js";
+import { SourceAssembler } from "./source-assembler";
+
+import { webGLCanvasToPng } from './canvas-tools';
+
+
 // import { demoContent } from "./initial-content.js"
 import { 
   ProcessScriptRequests, 
@@ -60,7 +64,9 @@ export type State = {
 
 let currentState: State;
 let animationFrameId: number | null = null;
-let canvasEl: HTMLElement | null;
+let canvasEl: HTMLCanvasElement | null;
+let screenshotWidth: number;
+let screenshotHeight: number;
 
 export const compileLegitScript = (content: string, legitScriptCompiler: LegitScriptCompiler): LegitScriptLoadResult | false => {
   const r = JSON.parse(
@@ -250,15 +256,14 @@ export const onEditorUpdate = async (content: string) => {
       });
     } else {
       const err = updateFramegraph(currentState.gpu, currentState.framegraph, compileResult)
-      if(err)
-      {
+      if(err) {
         throw new LegitSLError(err.msg, {
           line: err.line,
           column: 0,
         });
-      } else
-      {
+      } else {
         currentState.hasCompiledOnce = true;
+        takeScreenshot();
         executeFrame();
         // UnsetEditorSquiggies(decorations, currentState.editor);
       }
@@ -377,9 +382,12 @@ const executeFrame = (dt: number = 0) => {
   }
 };
 
+const takeScreenshot = () => {
+  executeFrame(0);
+  if (canvasEl) window.lslcore.screenshot = webGLCanvasToPng(canvasEl, screenshotWidth, screenshotHeight);
+};
 
 const executeLoop = (dt: number = 0) => {
-  cancelLoop();
   executeFrame(dt);
   animationFrameId = requestAnimationFrame(executeLoop);
 };
@@ -391,8 +399,13 @@ const cancelLoop = () => {
   }
 };
 
-const configure = (canvasSelector: string = "#output-container canvas") => {
+const configure = (canvasSelector: string = "#output-container canvas", reqSHWidth:number = 100, reqSHHeight:number = 75) => {
   canvasEl = document.querySelector(canvasSelector);
+  if (!canvasEl) {
+      throw new Error(`Canvas element not found for selector: ${canvasSelector}`);
+  }
+  screenshotWidth = reqSHWidth;
+  screenshotHeight = reqSHHeight;
 };
 
 window.lslcore = {
@@ -407,4 +420,5 @@ window.lslcore = {
   contextDefsBool:        contextDefsBool,
   contextDefsText:        contextDefsText,
   activeContextVarNames:  activeContextVarNames,
+  screenshot:             null
 };
