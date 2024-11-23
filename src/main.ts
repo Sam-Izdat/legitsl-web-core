@@ -261,7 +261,7 @@ export const onEditorUpdate = async (content: string) => {
         });
       } else {
         currentState.hasCompiledOnce = true;
-        takeScreenshot();
+        takeThumbnailScreenshot();
         executeFrame();
         // UnsetEditorSquiggies(decorations, currentState.editor);
       }
@@ -385,10 +385,22 @@ const executeFrame = (dt: number = 0, reqWidth: number = 0, reqHeight: number = 
   }
 };
 
-const takeScreenshot = () => {  
+const takeThumbnailScreenshot = () => {  
   if (canvasEl) {
-    executeFrame(0, window.lslcore.screenshotWidth, window.lslcore.screenshotHeight);
-    window.lslcore.screenshot = webGLCanvasToPng(canvasEl, window.lslcore.screenshotWidth, window.lslcore.screenshotHeight);
+    let thumbWidth: number = window.lslcore.screenshotWidth;
+    let thumbHeight: number = window.lslcore.screenshotHeight;
+    let shWidth: number = 1;
+    let shHeight: number = 1;
+    const targetLongestEdge = 1000;
+    if (thumbWidth > thumbHeight) {
+      shWidth = targetLongestEdge;
+      shHeight = Math.round(targetLongestEdge / (thumbWidth / thumbHeight));
+    } else {
+      shWidth = Math.round(targetLongestEdge * (thumbWidth / thumbHeight));
+      shWidth = targetLongestEdge;
+    }
+    executeFrame(0, shWidth, shHeight);
+    window.lslcore.screenshot = webGLCanvasToPng(canvasEl, thumbWidth, thumbHeight);
   };
 };
 
