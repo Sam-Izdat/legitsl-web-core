@@ -316,6 +316,8 @@ const executeFrame = (dt: number = 0, reqWidth: number = 0, reqHeight: number = 
   // Ensure we're sized properly w.r.t. pixel ratio
   const rect = gpu.container.getBoundingClientRect();
   if (reqWidth > 0 && reqHeight > 0) {
+    gpu.dims[0] = reqWidth;
+    gpu.dims[1] = reqHeight;
     gpu.canvas.width = reqWidth;
     gpu.canvas.height = reqHeight;
     gpu.canvas.style.width = `${reqWidth}px`;
