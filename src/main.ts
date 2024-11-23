@@ -380,9 +380,17 @@ const executeFrame = (dt: number = 0) => {
   }
 };
 
-const takeScreenshot = () => {
-  executeFrame(0);
-  if (canvasEl) window.lslcore.screenshot = webGLCanvasToPng(canvasEl, window.lslcore.screenshotWidth, window.lslcore.screenshotHeight);
+const takeScreenshot = () => {  
+  if (canvasEl) {
+    let lastWidth: number = canvasEl.width;
+    let lastHeight: number = canvasEl.height;
+    canvasEl.width = window.lslcore.screenshotWidth;
+    canvasEl.height = window.lslcore.screenshotHeight;
+    executeFrame(0);
+    window.lslcore.screenshot = webGLCanvasToPng(canvasEl, window.lslcore.screenshotWidth, window.lslcore.screenshotHeight);
+    canvasEl.width = lastWidth;
+    canvasEl.height = lastHeight;
+  };
 };
 
 const executeLoop = (dt: number = 0) => {
