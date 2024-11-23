@@ -304,7 +304,7 @@ const copyTexToSwapchain = (gpu: GPUState, tex : WebGLTexture | null) => {
 
 
 
-const executeFrame = (dt: number = 0) => {
+const executeFrame = (dt: number = 0, reqWidth: number = 0, reqHeight: number = 0) => {
   if (!currentState.hasCompiledOnce) {
     // TODO: render a placeholder image "sorry, the shader didn't compile" or something
     // executeLoop(dt);
@@ -315,6 +315,12 @@ const executeFrame = (dt: number = 0) => {
 
   // Ensure we're sized properly w.r.t. pixel ratio
   const rect = gpu.container.getBoundingClientRect();
+  if (reqWidth > 0 && reqHeight > 0) {
+    gpu.canvas.width = reqWidth;
+    gpu.canvas.height = reqHeight;
+    gpu.canvas.style.width = `${reqWidth}px`;
+    gpu.canvas.style.height = `${reqHeight}px`;
+  }
   if (gpu.dims[0] !== rect.width || gpu.dims[1] !== rect.height) {
     gpu.dims[0] = rect.width;
     gpu.dims[1] = rect.height;
@@ -382,14 +388,8 @@ const executeFrame = (dt: number = 0) => {
 
 const takeScreenshot = () => {  
   if (canvasEl) {
-    let lastWidth: number = canvasEl.width;
-    let lastHeight: number = canvasEl.height;
-    canvasEl.width = window.lslcore.screenshotWidth;
-    canvasEl.height = window.lslcore.screenshotHeight;
-    executeFrame(0);
+    executeFrame(0, window.lslcore.screenshotWidth, window.lslcore.screenshotHeight);
     window.lslcore.screenshot = webGLCanvasToPng(canvasEl, window.lslcore.screenshotWidth, window.lslcore.screenshotHeight);
-    canvasEl.width = lastWidth;
-    canvasEl.height = lastHeight;
   };
 };
 
